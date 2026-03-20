@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Assistant</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+      background-image: url('https://media.base44.com/images/public/69bcf45cbc6a04aed86a094f/de1b926da_library.png');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .container { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+    }
+
+    /* Header */
+    .header {
+      background: rgba(173, 206, 240, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-left h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 0.25rem;
+    }
+
+    .header-left .greeting {
+      font-size: 12px;
+      color: #e74c3c;
+      font-weight: 500;
+      margin-bottom: 0.1rem;
+    }
+
+    .header-left .timestamp {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-top: 0.25rem;
+    }
+
+    .refresh-btn {
+      padding: 0.6rem 1.2rem;
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 24px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #2c3e50;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      height: fit-content;
+    }
+
+    .refresh-btn:hover {
+      background: #f5f5f5;
+      border-color: #d0d0d0;
+    }
+
+    .refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #e0e0e0;
+      border-top-color: #3498db;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .refresh-btn:disabled .spinner {
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* Loading & Error */
+    .loading, .error {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      color: #7f8c8d;
+      margin-bottom: 2rem;
+    }
+
+    .error {
+      background: rgba(255, 240, 245, 0.15);
+      color: #c0392b;
+      border: 2px solid rgba(192, 57, 43, 0.2);
+    }
+
+    /* Section Container */
+    .section-container {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+    }
+
+    .section-header {
+      padding: 1rem 1.5rem;
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-radius: 16px 16px 0 0;
+    cursor: pointer;              /* Makes it look clickable */
+  user-select: none;
+  transition: all 0.3s ease;
+}
+
+.section-header:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.section-content {
+  padding: 1.5rem;
+  max-height: 2000px;           /* Needs a set max-height for animation */
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.section-content.collapsed {
+  max-height: 0;                /* Hides content */
+  padding: 0 1.5rem;
+}
+
+.collapse-arrow {
+  margin-left: auto;            /* Pushes arrow to the right */
+  font-size: 14px;
+  transition: transform 0.3s ease;
+}
+
+.section-container.collapsed .collapse-arrow {
+  transform: rotate(-90deg);    /* Rotates arrow when collapsed */
+}
+    .section-header.calendar {
+      background: rgba(149, 165, 240, 0.7);
+      color: #091b52;
+    }
+
+    .section-header.tasks {
+      background: rgba(165, 220, 165, 0.7);
+      color: #06400a;
+    }
+
+    .section-header.notes {
+      background: rgba(255, 233, 181, 0.7);
+      color: #e0591b;
+    }
+
+    .section-icon {
+      font-size: 30px;
+    }
+
+    .section-content {
+      padding: 1.5rem;
+    }
+
+    /* Calendar Carousel */
+    .calendar-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .carousel-arrow {
+      background: #F9EDE7;
+      border: 2px solid #e0e0e0;
+      border-radius: 35%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      color: #7f8c8d;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .carousel-arrow:hover:not(:disabled) {
+      background: #f5f5f5;
+      border-color: #d0d0d0;
+      color: #2c3e50;
+    }
+
+    .carousel-arrow:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .carousel-container {
+      flex: 1;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      scrollbar-width: thick;
+      scrollbar-color: #e0e0e0 transparent;
+    }
+
+    .carousel-container::-webkit-scrollbar {
+      height: 18px;
+    }
+
+    .carousel-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .carousel-container::-webkit-scrollbar-thumb {
+      background: #e0e0e0;
+      border-radius: 5px;
+    }
+
+    .carousel-container::-webkit-scrollbar-thumb:hover {
+      background: #d0d0d0;
+    }
+
+    .calendar-grid {
+      display: flex;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      min-width: min-content;
+    }
+
+    .day-card {
+      background: #dcdde0;
+      border-radius: 12px;
+      border: 2px solid #e0e0e0;
+      padding: 1rem;
+      min-width: 140px;
+      transition: all 0.3s ease;
+    }
+
+    .day-card.today {
+      border-color: #8736B4;
+      background: #B87ED8;
+      box-shadow: 0 4px 16px rgba(139, 54, 180, 0.2);
+    }
+
+    .day-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .day-label {
+      font-size: 24px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #353a7a;
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.5px;
+    }
+
+    .day-date {
+      font-size: 24px;
+      font-weight: 700;
+      color: #353a7a;
+      margin-bottom: 1rem;
+    }
+
+    .day-card.today .day-date {
+      color: black;
+    }
+
+    .event {
+      background: #f0f4ff;
+      border-left: 3px solid #3498db;
+      border-radius: 6px;
+      padding: 0.6rem;
+      margin-bottom: 0.5rem;
+      font-size: 12px;
+    }
+
+    .event.pink {
+      background: #fef0f5;
+      border-left-color: #e91e63;
+    }
+
+    .event.green {
+      background: #f0fdf4;
+      border-left-color: #10b981;
+    }
+
+    .event.orange {
+      background: #fff7ed;
+      border-left-color: #f97316;
+    }
+
+    .event-time {
+      font-weight: 600;
+      color: #2c3e50;
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+
+    .event-location {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-top: 0.2rem;
+    }
+
+    .no-events {
+      color: #bdc3c7;
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    /* Tasks Section */
+    .tasks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .course-card {
+      background: white;
+      border-radius: 12px;
+      border: 2px solid #e0e0e0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .course-card.blue { background: #dce7f7; }
+    .course-card.green { background: #dff0e8; }
+    .course-card.pink { background: #fce4ec; }
+    .course-card.orange { background: #ffe8d6; }
+    .course-card.purple { background: #f3e5f5; }
+    .course-card.gray { background: #f0f0f0; }
+
+    .course-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .course-header {
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .course-header:hover {
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .course-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+    }
+
+    .course-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .course-dot.blue { background: #3498db; }
+    .course-dot.green { background: #10b981; }
+    .course-dot.pink { background: #e91e63; }
+    .course-dot.orange { background: #f97316; }
+    .course-dot.purple { background: #8b5cf6; }
+    .course-dot.gray { background: #95a5a6; }
+
+    .course-title {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 32px;
+    }
+
+    .course-count {
+      background: rgba(0, 0, 0, 0.1);
+      color: #2c3e50;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: auto;
+    }
+
+    .toggle-arrow {
+      color: #bdc3c7;
+      font-size: 18px;
+      transition: transform 0.3s ease;
+      margin-left: 0.5rem;
+    }
+
+    .course-card.collapsed .toggle-arrow {
+      transform: rotate(180deg);
+    }
+
+    .task-list {
+      padding: 1rem;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .task-item {
+      padding: 0.6rem 0;
+      font-size: 13px;
+      color: #2c3e50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .task-item:last-child {
+      border-bottom: none;
+    }
+
+    .task-name {
+      flex: 1;
+    }
+
+    .task-due {
+      background: rgba(0, 0, 0, 0.1);
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 11px;
+      color: #1f2a5c;
+      white-space: nowrap;
+      margin-left: 0.5rem;
+    }
+
+    .task-list.hidden {
+      display: none;
+    }
+
+    /* Notes Section */
+    .filter-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 0.5rem 1rem;
+      border: 2px solid #e0e0e0;
+      background: #dcdde0;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1f2a5c;
+      transition: all 0.3s ease;
+    }
+
+    .filter-btn:hover {
+      border-color: #d0d0d0;
+    }
+
+    .filter-btn.active {
+      background: #d9ad29;
+      color: #d96129;
+      border-color: #f97316;
+    }
+
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .date-group {
+      grid-column: 1 / -1;
+    }
+
+    .date-header {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #1b1147;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      letter-spacing: 0.5px;
+    }
+
+    .notes-for-date {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .note-card {
+      background: #f0e3bb;
+      border-radius: 12px;
+      border: 2px solid #e0e0e0;
+      padding: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .note-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .note-card.task {
+      border-left: 4px solid #3498db;
+    }
+
+    .note-card.note {
+      border-left: 4px solid #f1c40f;
+    }
+
+    .note-card.reminder {
+      border-left: 4px solid #9b59b6;
+    }
+
+    .note-type {
+      display: inline-block;
+      background: #f0f0f0;
+      color: #2c3e50;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 0.6rem;
+      text-transform: capitalize;
+    }
+
+    .note-content {
+      color: #2c3e50;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .empty-message {
+      color: #bdc3c7;
+      font-style: italic;
+      text-align: center;
+      padding: 2rem;
+      font-size: 13px;
+    }
+
+    /* PPE Timeline */
+    .ppe-date-column {
+      flex: 0 0 150px;
+      padding: 1rem;
+      background: rgba(223, 226, 230, 0.9);
+      border-radius: 12px;
+      border: 2px solid #e0e0e0;
+word-wrap: break-word;
+    }
+
+    .ppe-date-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a2d5c;
+      margin-bottom: 0.75rem;
+      text-align: center;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid #c8b4dc;
+    }
+
+    .ppe-task-item {
+      font-size: 12px;
+      color: #2c3e50;
+      margin-bottom: 0.75rem;
+      padding: 0.5rem;
+      background: #f8f8f8;
+      border-radius: 6px;
+      border-left: 3px solid #8b5cf6;
+word-wrap: break-word;
+    }
+
+    .ppe-task-item:last-child {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="greeting" id="greeting">Good morning!</div>
+        <h1>Daily Assistant</h1>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <button class="refresh-btn" id="refreshBtn">
+          <span class="spinner"></span>
+          Refresh
+        </button>
+        <div class="timestamp" id="timestamp" style="font-size: 11px; color: #7f8c8d;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="loading">Fetching your calendar, tasks, and notes...</div>
+
+    <!-- Error State -->
+    <div id="error" style="display:none;" class="error"></div>
+
+    <!-- Content -->
+    <div id="content" style="display:none;">
+      <!-- Calendar Section -->
+      <div class="section-container">
+        <div class="section-header calendar" onclick="toggleSection(this)">
+          <span class="section-icon">📅</span>
+          This Week
+<span class="collapse-arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="calendar-wrapper">
+            <button class="carousel-arrow" id="calendarPrev" onclick="scrollCalendar(-1)">‹</button>
+            <div class="carousel-container" id="calendarScroll">
+              <div class="calendar-grid" id="calendar-events"></div>
+            </div>
+            <button class="carousel-arrow" id="calendarNext" onclick="scrollCalendar(1)">›</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PPE Section -->
+      <div class="section-container">
+        <div class="section-header" style="background: rgba(200, 180, 220, 0.7); color: #4a2d5c;" onclick="toggleSection(this)">
+          <span class="section-icon">🎓</span>
+          PPE
+<span class="collapse-arrow">▼</span>
+        </div>
+        <div class="section-content">
+         <div id="ppe-timeline" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 2rem; padding-bottom: 1rem;"></div>
+        </div>
+      </div>
+
+      <!-- Tasks Section -->
+      <div class="section-container">
+        <div class="section-header tasks" onclick="toggleSection(this)">
+          <span class="section-icon">📚</span>
+          School tasks
+<span class="collapse-arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="tasks-grid" id="school-tasks"></div>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div class="section-container">
+        <div class="section-header notes" onclick="toggleSection(this)">
+          <span class="section-icon">📝</span>
+          Notes
+<span class="collapse-arrow">▼</span>
+        </div>
+        <div class="section-content">
+          <div class="filter-buttons">
+            <button class="filter-btn active" onclick="filterNotes('all')">All</button>
+            <button class="filter-btn" onclick="filterNotes('Task')">Tasks</button>
+            <button class="filter-btn" onclick="filterNotes('Note')">Notes</button>
+            <button class="filter-btn" onclick="filterNotes('Reminder')">Reminders</button>
+          </div>
+          <div id="notes-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyvCy4Xc-sigfqNyxAqIVLaxW9yPoGlw4yTrYqNWx_PWWU8cBhNHxKaQMZWDT7Raht6/exec";
+    let allNotes = [];
+    let currentFilter = "all";
+    let isLoading = false;
+
+    async function loadDashboard() {
+      if (isLoading) return;
+      isLoading = true;
+      
+      const refreshBtn = document.getElementById("refreshBtn");
+      refreshBtn.disabled = true;
+
+      try {
+        const response = await fetch(BACKEND_URL);
+        const data = await response.json();
+        
+        if (data.error) throw new Error(data.error);
+        
+        document.getElementById("timestamp").textContent = `Last updated: ${data.timestamp}`;
+        renderCalendarEvents(data.calendarEvents);
+        renderPPE(data.ppe);
+        renderSchoolTasks(data.schoolTasks);
+        allNotes = data.notes;
+        renderNotes(allNotes);
+        
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "block";
+      } catch (error) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error").style.display = "block";
+        document.getElementById("error").textContent = "Error: " + error.message;
+      } finally {
+        isLoading = false;
+        refreshBtn.disabled = false;
+      }
+    }
+
+    function renderCalendarEvents(events) {
+      const container = document.getElementById("calendar-events");
+      if (!events || events.length === 0) {
+        container.innerHTML = "<div class='no-events'>No events this week</div>";
+        return;
+      }
+
+      const today = new Date();
+      const eventsByDay = {};
+
+      events.forEach(event => {
+        const eventDate = new Date(event.startTime);
+        const dateKey = eventDate.toISOString().split('T')[0];
+        if (!eventsByDay[dateKey]) eventsByDay[dateKey] = [];
+        eventsByDay[dateKey].push(event);
+      });
+
+      const nextDays = Array.from({length: 10}, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        return d;
+      });
+
+      container.innerHTML = nextDays.map(day => {
+        const dateKey = day.toISOString().split('T')[0];
+        const dayEvents = eventsByDay[dateKey] || [];
+        const isToday = day.toDateString() === today.toDateString();
+        const colors = ['blue', 'pink', 'green', 'orange'];
+
+        const dayOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][day.getDay()];
+        const date = day.getDate();
+
+        return `
+          <div class="day-card ${isToday ? 'today' : ''}">
+            <div class="day-label">${dayOfWeek}</div>
+            <div class="day-date">${date}</div>
+            ${dayEvents.length === 0 
+              ? '<div class="no-events">No events</div>'
+              : dayEvents.map((e, i) => `
+                  <div class="event ${colors[i % colors.length]}">
+                    <div class="event-time">${new Date(e.startTime).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</div>
+                    <div>${e.title}</div>
+                    ${e.location ? `<div class="event-location">📍 ${e.location}</div>` : ''}
+                  </div>
+                `).join('')
+            }
+          </div>
+        `;
+      }).join("");
+      updateCarouselArrows();
+    }
+
+    function renderPPE(ppeItems) {
+      const container = document.getElementById("ppe-timeline");
+      if (!ppeItems || ppeItems.length === 0) {
+        container.innerHTML = "<div class='empty-message'>No PPE items</div>";
+        return;
+      }
+
+      // Group by due date
+      const grouped = {};
+      ppeItems.forEach(item => {
+        const date = item.due || "No date";
+        if (!grouped[date]) grouped[date] = [];
+        grouped[date].push(item);
+      });
+
+      // Sort dates
+      const sortedDates = Object.keys(grouped).sort();
+
+      container.innerHTML = sortedDates.map(date => `
+        <div class="ppe-date-column">
+          <div class="ppe-date-header">${date}</div>
+          ${grouped[date].map(item => `
+            <div class="ppe-task-item">
+              ${item.task}
+              ${item.projectid ? `<div style="font-size: 10px; color: #999; margin-top: 0.3rem;">Project: ${item.projectid}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `).join("");
+    }
+
+    function renderSchoolTasks(tasks) {
+      const container = document.getElementById("school-tasks");
+      if (!tasks || tasks.length === 0) {
+        container.innerHTML = "<div class='empty-message'>No tasks loaded</div>";
+        return;
+      }
+
+      const grouped = {};
+      tasks.forEach(task => {
+        const course = task.course || "Other";
+        if (!grouped[course]) grouped[course] = [];
+        grouped[course].push(task);
+      });
+
+      const courseColors = {
+        'Coding': 'blue', 'CSCI': 'gray', 'MGMT': 'pink', 
+        'Quality': 'green', 'Stat': 'orange', 'PPE': 'purple'
+      };
+
+      container.innerHTML = Object.entries(grouped).map(([course, courseTasks]) => {
+        const colorKey = Object.keys(courseColors).find(k => course.toLowerCase().includes(k.toLowerCase())) || 'gray';
+        const color = courseColors[colorKey];
+        
+        return `
+          <div class="course-card ${color}">
+            <div class="course-header" onclick="toggleTasks(this)">
+              <div class="course-info">
+                <div class="course-dot ${color}"></div>
+                <div class="course-title">${course}</div>
+              </div>
+              <div class="course-count">${courseTasks.length}</div>
+              <div class="toggle-arrow">▼</div>
+            </div>
+            <div class="task-list">
+              ${courseTasks.map(t => `
+                <div class="task-item">
+                  <div class="task-name">• ${t.task}</div>
+                  ${t.endDate ? `<div class="task-due">due ${formatDate(t.endDate)}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function toggleTasks(header) {
+      const card = header.closest('.course-card');
+      const taskList = card.querySelector('.task-list');
+      taskList.classList.toggle('hidden');
+      card.classList.toggle('collapsed');
+    }
+
+    function renderNotes(notes) {
+      const container = document.getElementById("notes-list");
+      const filtered = currentFilter === "all" ? notes : notes.filter(n => n.type === currentFilter);
+
+      if (!filtered || filtered.length === 0) {
+        container.innerHTML = "<div class='empty-message'>No notes in this category</div>";
+        return;
+      }
+
+      const grouped = {};
+      filtered.forEach(note => {
+        const date = note.date || "No date";
+        if (!grouped[date]) grouped[date] = [];
+        grouped[date].push(note);
+      });
+
+      const sortedDates = Object.keys(grouped).sort().reverse();
+
+      container.innerHTML = sortedDates.map(date => `
+        <div class="date-group">
+          <div class="date-header">${date === "No date" ? date : formatLongDate(date)}</div>
+          <div class="notes-for-date">
+            ${grouped[date].map(note => `
+              <div class="note-card ${note.type.toLowerCase()}">
+                <div class="note-type">${note.type}</div>
+                <div class="note-content">${note.content}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function filterNotes(type) {
+      currentFilter = type;
+      document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.textContent.includes(type === "all" ? "All" : type));
+      });
+      renderNotes(allNotes);
+    }
+
+    function scrollCalendar(direction) {
+      const container = document.getElementById("calendarScroll");
+      const scrollAmount = 200;
+      container.scrollBy({
+        left: direction * scrollAmount,
+        behavior: 'smooth'
+      });
+      updateCarouselArrows();
+    }
+
+    function updateCarouselArrows() {
+      const container = document.getElementById("calendarScroll");
+      const prevBtn = document.getElementById("calendarPrev");
+      const nextBtn = document.getElementById("calendarNext");
+
+      prevBtn.disabled = container.scrollLeft === 0;
+      nextBtn.disabled = container.scrollLeft + container.clientWidth >= container.scrollWidth - 10;
+    }
+
+    document.getElementById("calendarScroll")?.addEventListener("scroll", updateCarouselArrows);
+
+    function formatDate(dateStr) {
+      if (!dateStr) return "";
+      const date = new Date(dateStr);
+      return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function formatLongDate(dateStr) {
+      if (!dateStr) return "";
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', {month: '2-digit', day: '2-digit'});
+      } catch {
+        return dateStr;
+      }
+    }
+
+    function updateGreeting() {
+      const h = new Date().getHours();
+      const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+      document.getElementById("greeting").textContent = greeting + "!";
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", loadDashboard);
+
+    updateGreeting();
+    loadDashboard();
+function toggleSection(header) {
+  const container = header.closest('.section-container');
+  const content = container.querySelector('.section-content');
+  container.classList.toggle('collapsed');
+  content.classList.toggle('collapsed');
+}
+
+  </script>
+</body>
+</html>
